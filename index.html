@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soon Family Christmas Lucky Draw</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Inter:wght@300;400;500;600;700;800&family=Great+Vibes&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Snowflakes background -->
+    <div class="snowflakes" aria-hidden="true">
+        <div class="snowflake">❅</div>
+        <div class="snowflake">❆</div>
+        <div class="snowflake">❅</div>
+        <div class="snowflake">❆</div>
+        <div class="snowflake">❅</div>
+        <div class="snowflake">❆</div>
+        <div class="snowflake">❅</div>
+        <div class="snowflake">❆</div>
+        <div class="snowflake">❅</div>
+        <div class="snowflake">❆</div>
+        <div class="snowflake">❅</div>
+        <div class="snowflake">❆</div>
+    </div>
+
+    <!-- Christmas lights border -->
+    <div class="lights-top"></div>
+
+    <!-- Screen 1: Input Screen -->
+    <div id="input-screen" class="screen active">
+        <div class="container">
+            <div class="header">
+                <div class="logo-container">
+                    <div class="logo-ornament"></div>
+                    <h1 class="title">Soon Family</h1>
+                    <h2 class="subtitle-main">Christmas Lucky Draw</h2>
+                    <div class="title-decoration">2025</div>
+                </div>
+                <p class="subtitle">Add participants to begin the exciting draw</p>
+            </div>
+
+            <div class="input-section">
+                <div class="input-method">
+                    <label for="names-textarea">Enter Names (one per line):</label>
+                    <textarea 
+                        id="names-textarea" 
+                        placeholder="John Smith&#10;Jane Doe&#10;Bob Johnson&#10;..."
+                        rows="10"
+                    ></textarea>
+                </div>
+
+                <div class="divider">
+                    <span>OR</span>
+                </div>
+
+                <div class="input-method">
+                    <label for="csv-upload">Upload CSV/TXT File:</label>
+                    <div class="upload-wrapper">
+                        <input 
+                            type="file" 
+                            id="csv-upload" 
+                            accept=".csv,.txt"
+                            hidden
+                        >
+                        <button class="upload-btn" onclick="document.getElementById('csv-upload').click()">
+                            📁 Choose File
+                        </button>
+                        <span id="file-name" class="file-name">No file chosen</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="name-counter">
+                <span id="participant-count">0 participants loaded</span>
+            </div>
+
+            <button id="start-btn" class="start-btn" disabled>
+                <span class="btn-icon">🎁</span>
+                <span class="btn-text">Start Lucky Draw</span>
+                <span class="btn-shine"></span>
+            </button>
+
+            <button id="game-selector-btn" class="game-selector-btn" disabled>
+                <span class="btn-icon">🎮</span>
+                <span class="btn-text">Pick Game Players</span>
+                <span class="btn-shine"></span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Screen 2: Game Selector Screen (Claw Machine) -->
+    <div id="game-selector-screen" class="screen">
+        <div class="game-selector-container">
+            <div class="game-selector-header">
+                <h1 class="game-title">🎮 Christmas Game Player Selection 🎮</h1>
+                <p class="game-subtitle">Watch the claw pick your game players!</p>
+            </div>
+
+            <div class="claw-machine-container">
+                <!-- Claw Machine Structure -->
+                <div class="claw-machine">
+                    <!-- Machine Frame -->
+                    <div class="machine-frame">
+                        <!-- Top of machine -->
+                        <div class="machine-top"></div>
+                        
+                        <!-- Glass front -->
+                        <div class="machine-glass">
+                            <!-- Claw mechanism -->
+                            <div class="claw-rail">
+                                <div class="claw-arm" id="claw-arm">
+                                    <div class="claw-cable"></div>
+                                    <div class="claw">
+                                        <div class="claw-left"></div>
+                                        <div class="claw-right"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Soft toys in the machine (background image) -->
+                            <div class="toys-container" id="toys-container"></div>
+
+                            <!-- Prize chute -->
+                            <div class="prize-chute"></div>
+                        </div>
+
+                        <!-- Control panel -->
+                        <div class="control-panel">
+                            <div class="joystick"></div>
+                            <div class="start-button-machine"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Selected player display -->
+                <div id="selected-player-display" class="selected-player-display"></div>
+            </div>
+
+            <!-- Selected players list -->
+            <div id="selected-players-list" class="selected-players-list"></div>
+
+            <!-- Action buttons -->
+            <div class="game-selector-actions">
+                <button id="spin-again-btn" class="action-btn spin-again-btn">
+                    <span>🎯</span> Pick Another Player
+                </button>
+                <button id="back-to-input-btn" class="action-btn back-btn">
+                    <span>🔙</span> Back to Setup
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Screen 3: Animation Screen -->
+    <div id="animation-screen" class="screen">
+        <!-- Screen Flash Effect -->
+        <div id="screen-flash" class="screen-flash"></div>
+        
+        <div class="animation-container">
+            <div class="progress-indicator">
+                <span id="winner-progress">10th Place</span>
+            </div>
+
+            <!-- Loot Box Container -->
+            <div id="loot-box-container" class="loot-box-container">
+                <!-- Cinematic spotlight -->
+                <div class="spotlight-bg" id="spotlight-bg"></div>
+                
+                <!-- Light beams background -->
+                <div class="light-beams" id="light-beams">
+                    <div class="beam"></div>
+                    <div class="beam"></div>
+                    <div class="beam"></div>
+                    <div class="beam"></div>
+                    <div class="beam"></div>
+                    <div class="beam"></div>
+                    <div class="beam"></div>
+                    <div class="beam"></div>
+                </div>
+
+                <!-- Glow rings -->
+                <div class="glow-rings" id="glow-rings">
+                    <div class="ring"></div>
+                    <div class="ring"></div>
+                    <div class="ring"></div>
+                </div>
+
+                <div class="loot-box" id="loot-box">
+                    <!-- 3D Present Box -->
+                    <div class="present-3d">
+                        <!-- Box Bottom (Main gift) -->
+                        <div class="box-main">
+                            <div class="box-face box-front"></div>
+                            <div class="box-face box-back"></div>
+                            <div class="box-face box-left"></div>
+                            <div class="box-face box-right"></div>
+                            <div class="box-face box-bottom-face"></div>
+                            <div class="box-face box-top-face"></div>
+                        </div>
+                        
+                        <!-- Box Lid (flies off) -->
+                        <div class="box-lid">
+                            <div class="lid-face lid-top"></div>
+                            <div class="lid-face lid-front"></div>
+                            <div class="lid-face lid-back"></div>
+                            <div class="lid-face lid-left"></div>
+                            <div class="lid-face lid-right"></div>
+                        </div>
+                        
+                        <!-- Ribbon (horizontal) -->
+                        <div class="ribbon-3d ribbon-horizontal"></div>
+                        
+                        <!-- Ribbon (vertical) -->
+                        <div class="ribbon-3d ribbon-vertical"></div>
+                        
+                        <!-- Bow on top -->
+                        <div class="bow-3d">
+                            <div class="bow-center"></div>
+                            <div class="bow-loop bow-left"></div>
+                            <div class="bow-loop bow-right"></div>
+                            <div class="bow-tail bow-tail-left"></div>
+                            <div class="bow-tail bow-tail-right"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Click prompt -->
+                <div id="click-prompt" class="click-prompt">
+                    <div class="click-icon">👆</div>
+                    <div class="click-text">CLICK TO OPEN</div>
+                </div>
+
+                <!-- Particle burst effect -->
+                <div id="particle-container" class="particle-container"></div>
+
+                <!-- Winner name reveal -->
+                <div id="winner-name" class="winner-name"></div>
+            </div>
+
+            <!-- Previously revealed winners -->
+            <div id="previous-winners" class="previous-winners"></div>
+
+            <!-- Skip button -->
+            <button id="skip-btn" class="skip-btn">
+                <span>⏭️ Skip to Results</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Screen 4: Final Results Screen -->
+    <div id="results-screen" class="screen">
+        <div class="results-container">
+            <div class="results-header">
+                <div class="results-ornament">✨</div>
+                <h1 class="results-title">Congratulations!</h1>
+                <p class="results-subtitle">Soon Family Christmas Lucky Draw Winners</p>
+                <div class="results-ornament">✨</div>
+            </div>
+            
+            <div id="winners-grid" class="winners-grid"></div>
+
+            <div class="results-actions">
+                <button id="new-draw-btn" class="action-btn primary">
+                    <span>🔄</span> Start New Draw
+                </button>
+                <button id="download-btn" class="action-btn secondary">
+                    <span>📥</span> Download Results
+                </button>
+            </div>
+        </div>
+
+        <!-- Continuous confetti on results screen -->
+        <canvas id="confetti-canvas"></canvas>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
+
