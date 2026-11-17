@@ -2,7 +2,7 @@
 (function () {
   const canvas = document.getElementById('confetti');
   const g = canvas.getContext('2d');
-  const colors = ['#ffd21f', '#ff2d3d', '#14c46b', '#f4f7ff', '#1d58ff'];
+  const colors = ['#ffd56b', '#fff3c4', '#ff5a5a', '#47d68a', '#56a8ff', '#ffb43a'];
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
   let pieces = [];
   let raf = null;

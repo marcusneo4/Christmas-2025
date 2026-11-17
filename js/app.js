@@ -20,7 +20,7 @@
       $('badge').className = 'badge' + (tone ? ' ' + tone : '');
       $('badge-text').textContent = badge;
       this.setCounter(counter);
-      if (id !== 'draw') XMAS.audio.stopMusic();
+      if (id !== 'draw') XMAS.audio.stopAll();
     },
     setCounter(t) { $('counter').textContent = t; },
     get current() { return current; }
@@ -134,14 +134,14 @@
     else if (names.length < prizes.length) msg = `Need at least ${prizes.length} contestants for ${prizes.length} prizes. You have ${names.length}.`;
     live.disabled = Boolean(msg);
     hint.textContent = msg;
-    $('go-claw').disabled = names.length < 1;
+    $('go-players').disabled = names.length < 2;
   }
 
   function refreshResume() {
     const saved = XMAS.store.getDraw();
     const box = $('resume');
-    if (saved && saved.prizes && saved.winners) {
-      const done = saved.index + (saved.revealed ? 1 : 0);
+    if (saved && saved.prizes && Array.isArray(saved.winners) && Array.isArray(saved.names)) {
+      const done = saved.winners.length;
       box.hidden = false;
       $('resume-text').textContent = done >= saved.prizes.length
         ? `All ${saved.prizes.length} winners drawn.`
@@ -159,20 +159,29 @@
     if (XMAS.store.getDraw() && !confirm('Start a brand-new draw? The draw in progress will be replaced.')) return;
     XMAS.draw.start(names, prizes.filter((p) => p.name.trim()));
   });
-  $('resume-btn').addEventListener('click', () => { XMAS.audio.unlock(); XMAS.draw.resume(XMAS.store.getDraw()); });
+  $('resume-btn').addEventListener('click', () => {
+    XMAS.audio.unlock();
+    if (!XMAS.draw.resume(XMAS.store.getDraw())) refreshResume();
+  });
   $('discard-btn').addEventListener('click', () => {
     if (!confirm('Discard the draw in progress? Its winners will be lost.')) return;
     XMAS.draw.clear();
     refreshResume();
   });
-  $('go-claw').addEventListener('click', () => { XMAS.audio.unlock(); XMAS.claw.open(); });
+  $('go-players').addEventListener('click', () => { XMAS.audio.unlock(); XMAS.draw.openPlayers(); });
 
-  /* ---- Draw / claw / results controls ---- */
-  $('winner-banner').addEventListener('click', () => { XMAS.audio.unlock(); XMAS.draw.next(); });
-  $('pick-btn').addEventListener('click', () => { XMAS.audio.unlock(); XMAS.claw.pick(); });
-  $('clear-picked').addEventListener('click', () => XMAS.claw.clear());
-  $('claw-back').addEventListener('click', goSetup);
-  $('results-claw').addEventListener('click', () => XMAS.claw.open());
+  /* ---- Suspense speed ---- */
+  XMAS.settings = { quick: XMAS.store.getQuick() };
+  function renderSpeed() {
+    $('speed-full').setAttribute('aria-checked', String(!XMAS.settings.quick));
+    $('speed-quick').setAttribute('aria-checked', String(XMAS.settings.quick));
+  }
+  $('speed-full').addEventListener('click', () => { XMAS.settings.quick = false; XMAS.store.setQuick(false); renderSpeed(); });
+  $('speed-quick').addEventListener('click', () => { XMAS.settings.quick = true; XMAS.store.setQuick(true); renderSpeed(); });
+
+  /* ---- Draw / results controls ---- */
+  $('tree-wrap').addEventListener('click', () => XMAS.draw.next());
+  $('results-players').addEventListener('click', () => XMAS.draw.openPlayers());
   $('new-draw').addEventListener('click', () => {
     if (!confirm('Start over? This clears tonight\'s winners from this browser. Download the results first if you want to keep them.')) return;
     XMAS.draw.clear();
@@ -212,10 +221,11 @@
         XMAS.audio.unlock();
         XMAS.draw.next();
       } else if (k === 's' || k === 'S') XMAS.draw.skip();
-      else if (k === 'Escape' && !XMAS.draw.busy) goSetup();
-    } else if (current === 'claw') {
-      if (k === ' ' || k === 'Enter' || k === 'ArrowRight' || k === 'PageDown') { e.preventDefault(); XMAS.audio.unlock(); XMAS.claw.pick(); }
-      else if (k === 'Escape' && !XMAS.claw.busy) goSetup();
+      else if (k === 'Escape') {
+        if (XMAS.draw.busy && !confirm('Stop this round and go back to setup? This prize will be drawn again from the start.')) return;
+        XMAS.draw.leave();
+        goSetup();
+      }
     } else if (current === 'results') {
       if (k === 'Escape') goSetup();
     }
@@ -227,6 +237,7 @@
   readNames();
   renderPrizes();
   renderSound();
-  XMAS.claw.init(() => names);
+  renderSpeed();
+  XMAS.app = { names: () => names.slice() };
   goSetup();
 })();

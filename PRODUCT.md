@@ -16,7 +16,7 @@ One host (family member) runs the app from a laptop plugged into a large TV at t
 
 ## Product Purpose
 
-A live lucky draw for the Soon Family Christmas 2025. It randomly picks winners from the family list and reveals them one by one in a suspenseful, cheer-worthy sequence, plus a claw-machine picker that chooses players for party games. Success: the room is watching the TV and cheering at every reveal, and the draw is visibly fair.
+A live lucky draw for the Soon Family Christmas 2025. It randomly picks winners from the family list and reveals them one by one in a suspenseful, cheer-worthy sequence, plus a picker that chooses players for party games. Success: the room is watching the TV and cheering at every reveal, and the draw is visibly fair.
 
 ## Positioning
 
@@ -34,14 +34,15 @@ A family-owned party ritual, not a generic raffle tool: it carries the Soon fami
 - Participants: typed (one per line), uploaded CSV/TXT, or the built-in family list (kept in the repo by the owner's decision).
 - Prize ladder: 17 winners — 10 main prizes counted down from 10th to 1st, with 7 "after Nth" bonus prizes in between. Default list lives in code; the host can edit prizes on the setup screen.
 - Duplicate names are removed; each person can win at most once.
-- Claw machine picks game players one at a time from the same participant list, without repeats until the list is exhausted.
+- The game-player picker chooses players one at a time from the same participant list, without repeats until the list is exhausted.
+- Winners are chosen live at the moment of each reveal, never in advance.
 - Results can be downloaded as a text file.
-- Sound is synthesized with Web Audio (no audio assets).
+- Sound is synthesized with Web Audio (no audio assets). No looping music; sound must stay soft and musical (the host found loud synth fanfares annoying).
 
 ## Brand Commitments
 
 - Name: "Soon Family Christmas Lucky Draw 2025".
-- Tone: game-show hype, festive, for all ages.
+- Tone: suspense and delight, festive, for all ages. Pacing should build tension; fast reveals felt flat.
 
 ## Evidence on Hand
 

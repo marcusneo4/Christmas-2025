@@ -1,297 +1,260 @@
-/* The live draw: announce prize → Space → drum spins, ball drops, winner revealed → Space → next prize. */
+/* Draw controller: prize announcements, live winner choice, saved progress, results.
+   Winners are chosen at the moment the host presses Space — never in advance. */
 (function () {
   const $ = (id) => document.getElementById(id);
-  const el = {
-    screen: $('draw'), rows: $('board-rows'), togo: $('togo'),
-    drumWrap: document.querySelector('.drum-wrap'), drum: $('drum'), drumBalls: $('drum-balls'),
-    liveBall: $('live-ball'), liveNum: $('live-ball-num'),
-    strip: $('prize-strip'), label: $('prize-label'), prize: $('prize-name'),
-    banner: $('winner-banner'), name: $('winner-name'), meta: $('winner-meta'),
-    ticker: $('ticker'), grand: $('grand'), results: $('results-board')
-  };
-  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const wait = (ms) => new Promise((r) => setTimeout(r, reduce.matches ? Math.min(ms, 120) : ms));
   const num = (i) => String(i + 1).padStart(2, '0');
-  const isBonus = (p) => /bonus/i.test(p.label);
+  const BULBS = ['#ff5a5a', '#ffb43a', '#47d68a', '#56a8ff', '#ff7fc0', '#ffe066'];
 
-  let state = null;   // { prizes, winners, index, revealed }
+  let state = null;   // { prizes, names, winners: [], index, phase: 'announce'|'running'|'won', pending }
   let busy = false;
+  let mode = 'prize'; // or 'players'
+  const players = { picked: [] };
 
   const save = () => XMAS.store.setDraw(state);
-  const isLast = () => state.index === state.prizes.length - 1;
+  const isGrand = () => state && state.index === state.prizes.length - 1;
+  const won = () => new Set(state ? state.winners : []);
 
-  function announce(text) { $('announcer').textContent = text; }
+  function announce(t) { $('announcer').textContent = t; }
+  function setCue(html) { $('cue').innerHTML = html; }
 
-  /* ---- Board ---- */
-  function renderBoard() {
-    el.rows.innerHTML = '';
-    state.prizes.forEach((p, i) => {
+  function renderRecent(items, head) {
+    const ol = $('recent');
+    ol.innerHTML = '';
+    items.slice(-6).reverse().forEach(([a, b]) => {
       const li = document.createElement('li');
-      const won = i < state.index || (i === state.index && state.revealed);
-      if (i < state.index) li.className = 'done';
-      if (i === state.index) li.className = 'live';
-      if (i === state.prizes.length - 1) li.classList.add('grand');
-      const ball = document.createElement('span');
-      ball.className = 'ball' + (isBonus(p) ? ' bonus' : '');
-      ball.textContent = num(i);
-      const name = document.createElement('span');
-      name.className = 'p';
-      name.textContent = p.name;
-      const who = document.createElement('span');
-      who.className = 'who';
-      who.textContent = won ? state.winners[i] : '';
-      li.append(ball, name, who);
-      el.rows.append(li);
+      const s1 = document.createElement('span');
+      s1.textContent = a;
+      const s2 = document.createElement('b');
+      s2.textContent = b;
+      li.append(s1, s2);
+      ol.append(li);
     });
-    const left = state.prizes.length - state.index - (state.revealed ? 1 : 0);
-    el.togo.textContent = left === 0 ? 'all drawn' : `${left} to go`;
-    XMAS.ui.setCounter(`Draw ${num(state.index)} / ${String(state.prizes.length).padStart(2, '0')}`);
+    $('recent-head').textContent = head;
+    $('recent-head').hidden = items.length === 0;
   }
 
-  /* ---- Drum: remaining balls settle in a pile at the bottom of the globe ---- */
-  function pile(count) {
-    const R = 280, inner = 229, step = 72, out = [];
-    for (let y = 470, row = 0; out.length < count && y > 80; y -= 60, row++) {
-      const half = Math.sqrt(Math.max(0, inner * inner - (y - R) * (y - R)));
-      const fit = Math.max(1, Math.floor((half * 2) / step) - (row % 2));
-      const start = R - ((fit - 1) * step) / 2;
-      for (let k = 0; k < fit && out.length < count; k++) {
-        const jitter = ((out.length * 37) % 9) - 4;
-        out.push([start + k * step - 37 + jitter, y - 37]);
-      }
-    }
-    return out;
+  function pool() { return state.names.filter((n) => !state.winners.includes(n)); }
+  function prizeRecent() { renderRecent(state.winners.map((w, i) => [state.prizes[i].name, w]), 'Already won'); }
+
+  function enterPanel() {
+    const p = $('prize-panel');
+    p.classList.remove('enter'); void p.offsetWidth; p.classList.add('enter');
   }
 
-  function renderDrum() {
-    const from = state.index + (state.revealed ? 1 : 0);
-    const remaining = state.prizes.map((p, i) => i).filter((i) => i >= from);
-    const pos = pile(remaining.length);
-    el.drumBalls.innerHTML = '';
-    remaining.forEach((i, k) => {
-      const b = document.createElement('span');
-      b.className = 'ball' + (isBonus(state.prizes[i]) ? ' bonus' : '');
-      b.textContent = num(i);
-      b.style.left = pos[k][0] + 'px';
-      b.style.top = pos[k][1] + 'px';
-      b.style.rotate = `${((i * 47) % 50) - 25}deg`;
-      b.style.setProperty('--d', `${-(k % 5) * 0.06}s`);
-      b.style.setProperty('--jx', `${((k * 13) % 24) - 12}px`);
-      b.style.setProperty('--jy', `${-8 - ((k * 7) % 14)}px`);
-      el.drumBalls.append(b);
-    });
-  }
-
-  /* Shrink a long name until it fits the banner. */
-  function fitName(target, max, min) {
-    target.style.fontSize = max + 'px';
-    const banner = target.parentElement;
-    const meta = banner.querySelector('.winner-meta');
-    const room = banner.clientWidth - 68 - (meta ? meta.offsetWidth + 24 : 0);
-    let size = max;
-    while (target.scrollWidth > room && size > min) {
-      size -= 4;
-      target.style.fontSize = size + 'px';
-    }
-  }
-
-  function renderStage({ animate = false } = {}) {
+  /* ---------- Prize mode ---------- */
+  function renderAnnounce() {
     const p = state.prizes[state.index];
-    el.screen.classList.toggle('grand', isLast());
-    el.label.textContent = p.label;
-    el.prize.textContent = p.name;
-    if (animate) { el.strip.classList.remove('wipe'); void el.strip.offsetWidth; el.strip.classList.add('wipe'); }
-
-    el.banner.classList.remove('slam', 'flash');
-    if (state.revealed) {
-      el.banner.classList.remove('waiting');
-      el.name.textContent = state.winners[state.index];
-      el.meta.textContent = `Ball ${num(state.index)} · Winner`;
-      el.liveBall.className = 'live-ball shown';
-      el.liveNum.textContent = num(state.index);
-      el.banner.setAttribute('aria-label', isLast() ? 'Show all winners' : 'Next prize');
-      requestAnimationFrame(() => fitName(el.name, 132, 60));
-    } else {
-      el.banner.classList.add('waiting');
-      el.name.textContent = isLast() ? 'For the grand prize…' : 'Who will it be?';
-      el.name.style.fontSize = '';
-      el.meta.innerHTML = '<kbd>Space</kbd>to draw';
-      el.liveBall.className = 'live-ball empty';
-      el.liveNum.textContent = '?';
-      el.banner.setAttribute('aria-label', 'Draw the winner');
-    }
+    $('prize-label').textContent = isGrand() ? 'The grand prize' : p.label;
+    $('prize-name').textContent = p.name;
+    $('progress').textContent = `Prize ${state.index + 1} of ${state.prizes.length}`;
+    XMAS.tree.reset();
+    XMAS.tree.setStatus(pool().length, 'names on the tree');
+    setCue(`<kbd>Space</kbd>${isGrand() ? 'Light the tree for the grand prize' : 'Light the tree'}`);
+    prizeRecent();
+    XMAS.ui.setCounter(`Prize ${num(state.index)} / ${String(state.prizes.length).padStart(2, '0')}`);
+    enterPanel();
   }
 
-  function renderTicker() {
-    el.ticker.innerHTML = '';
-    const upto = state.index + (state.revealed ? 1 : 0);
-    for (let i = 0; i < upto; i++) addTicker(i, false);
-  }
-
-  function addTicker(i, fresh) {
-    const s = document.createElement('span');
-    if (fresh) s.className = 'new';
-    const b = document.createElement('b');
-    b.textContent = num(i);
-    s.append(b, `${state.prizes[i].name} — ${state.winners[i]}`);
-    el.ticker.append(s);
-  }
-
-  function renderAll() {
-    renderBoard();
-    renderDrum();
-    renderStage();
-    renderTicker();
-  }
-
-  /* ---- The reveal ---- */
-  async function reveal() {
+  async function runPrize() {
     busy = true;
-    const grand = isLast();
-    const roll = grand ? 3200 : 1700;
-    el.banner.classList.remove('waiting');
-    el.name.textContent = grand ? 'Drumroll please…' : 'Drawing…';
-    el.meta.textContent = '';
-    el.liveBall.className = 'live-ball empty';
-    el.drum.classList.add('spinning');
-    el.drumWrap.classList.add('spinning');
-    XMAS.audio.drumroll(roll / 1000);
-    await wait(roll);
-
-    el.drum.classList.remove('spinning');
-    el.drumWrap.classList.remove('spinning');
-    [...el.drumBalls.children].find((b) => b.textContent === num(state.index))?.remove();
-    el.liveNum.textContent = num(state.index);
-    el.liveBall.className = 'live-ball in';
-    XMAS.audio.pop();
-    await wait(700);
-
-    state.revealed = true;
-    save();
-    const winner = state.winners[state.index];
     const p = state.prizes[state.index];
-    el.name.textContent = winner;
-    el.meta.textContent = `Ball ${num(state.index)} · Winner`;
-    fitName(el.name, 132, 60);
-    el.banner.classList.add('slam', 'flash');
-    XMAS.audio.fanfare(grand);
-    const r = el.banner.getBoundingClientRect();
-    XMAS.fx.burst(r.left + r.width * 0.35, r.top + 20, grand ? 320 : 170);
-    if (grand) XMAS.fx.rain(300);
-    announce(`${p.label}, ${p.name}, goes to ${winner}`);
-
-    renderBoard();
-    renderDrum();
-    addTicker(state.index, true);
-    el.banner.setAttribute('aria-label', grand ? 'Show all winners' : 'Next prize');
-    await wait(600);
+    const candidates = pool();
+    if (!state.pending || !candidates.includes(state.pending)) {
+      state.pending = candidates[XMAS.random.randomInt(candidates.length)];
+    }
+    state.phase = 'running';
+    save();
+    setCue('<span class="watch">Watch the tree…</span>');
+    const done = await XMAS.tree.run({
+      pool: candidates,
+      winner: state.pending,
+      grand: isGrand(),
+      quick: XMAS.settings.quick && !isGrand(),
+      plateLabel: isGrand() ? 'Grand prize winner' : 'Lights the star!',
+      prizeText: `${p.label} · ${p.name}`
+    });
+    if (!done) { busy = false; return; }
+    state.winners.push(state.pending);
+    state.pending = null;
+    state.phase = 'won';
+    save();
+    XMAS.tree.markWon(state.winners[state.index]);
+    prizeRecent();
+    announce(`${p.label}, ${p.name}, goes to ${state.winners[state.index]}`);
+    setCue(isGrand() ? '<kbd>Space</kbd>See all the winners' : '<kbd>Space</kbd>Next prize');
     busy = false;
   }
 
-  async function advance() {
-    state.index += 1;
-    state.revealed = false;
+  function nextPrize() {
+    if (isGrand()) { showResults(); return; }
+    state.index++;
+    state.phase = 'announce';
     save();
-    renderBoard();
-    renderDrum();
-    renderStage({ animate: true });
-    XMAS.audio.chime();
+    renderAnnounce();
+    XMAS.audio.announce();
     const p = state.prizes[state.index];
-    announce(`Next: ${p.label}, ${p.name}. Press Space to draw.`);
+    announce(`Next: ${p.label}, ${p.name}. Press Space to light the tree.`);
   }
 
-  /* ---- Results ---- */
-  function renderResults() {
-    const n = state.prizes.length;
-    const last = n - 1;
-    const gp = state.prizes[last];
-    el.grand.innerHTML = '';
-    const strip = document.createElement('div');
-    strip.className = 'prize-strip';
-    strip.innerHTML = '<small></small><span></span>';
-    strip.querySelector('small').textContent = gp.label;
-    strip.querySelector('span').textContent = gp.name;
-    const banner = document.createElement('div');
-    banner.className = 'winner-banner static';
-    const b = document.createElement('b');
-    b.textContent = state.winners[last];
-    const meta = document.createElement('span');
-    meta.className = 'winner-meta';
-    meta.textContent = `Ball ${num(last)} · Winner`;
-    banner.append(b, meta);
-    el.grand.append(strip, banner);
-    requestAnimationFrame(() => fitName(b, 120, 56));
+  function openPrizeMode() {
+    mode = 'prize';
+    $('draw').classList.remove('players');
+    XMAS.ui.show('draw', { badge: 'Live', tone: 'live' });
+    XMAS.tree.layout(state.names, { won: won() });
+    if (state.phase === 'won') {
+      renderAnnounce();
+      const p = state.prizes[state.index];
+      XMAS.tree.showWinner(state.winners[state.index], { plateLabel: 'Lights the star!', prizeText: `${p.label} · ${p.name}` });
+      setCue(isGrand() ? '<kbd>Space</kbd>See all the winners' : '<kbd>Space</kbd>Next prize');
+    } else {
+      state.phase = 'announce';
+      renderAnnounce();
+      XMAS.audio.announce();
+    }
+  }
 
-    el.results.innerHTML = '';
+  /* ---------- Players mode (party games) ---------- */
+  function renderPlayers() {
+    $('prize-label').textContent = 'Game time';
+    $('prize-name').textContent = "Who's playing next?";
+    $('progress').textContent = `${players.picked.length} picked so far`;
+    setCue('<kbd>Space</kbd>Pick a player');
+    renderRecent(players.picked.map((n, i) => [`Player ${i + 1}`, n]), 'Picked');
+    enterPanel();
+  }
+
+  async function runPlayers() {
+    busy = true;
+    const everyone = XMAS.app.names();
+    let candidates = everyone.filter((n) => !players.picked.includes(n));
+    if (!candidates.length) {
+      players.picked = [];
+      XMAS.tree.clearPicked();
+      candidates = everyone.slice();
+    }
+    const winner = candidates[XMAS.random.randomInt(candidates.length)];
+    setCue('<span class="watch">Watch the tree…</span>');
+    const done = await XMAS.tree.run({ pool: candidates, winner, quick: true, plateLabel: "You're up!", prizeText: `Player ${players.picked.length + 1}` });
+    if (done) {
+      players.picked.push(winner);
+      XMAS.tree.markPicked(winner);
+      renderRecent(players.picked.map((n, i) => [`Player ${i + 1}`, n]), 'Picked');
+      $('progress').textContent = `${players.picked.length} picked so far`;
+      setCue('<kbd>Space</kbd>Pick another player');
+      announce(`${winner} is up!`);
+    }
+    busy = false;
+  }
+
+  /* ---------- Results ---------- */
+  function renderResults() {
+    const last = state.prizes.length - 1;
+    const gp = state.prizes[last];
+    const g = $('grand');
+    g.innerHTML = '<span class="g-label"></span><b class="g-name"></b><span class="g-prize"></span>';
+    g.querySelector('.g-label').textContent = gp.label;
+    g.querySelector('.g-name').textContent = state.winners[last] || '—';
+    g.querySelector('.g-prize').textContent = gp.name;
+    const ol = $('results-board');
+    ol.innerHTML = '';
     const others = state.prizes.slice(0, last);
-    el.results.style.setProperty('--rows', Math.max(1, Math.ceil(others.length / 2)));
+    ol.style.setProperty('--rows', Math.max(1, Math.ceil(others.length / 2)));
     others.forEach((p, i) => {
       const li = document.createElement('li');
       li.style.setProperty('--i', i);
-      li.innerHTML = '<span></span><span class="lbl"></span><span class="p"></span><span class="who"></span>';
-      const [ball, lbl, name, who] = li.children;
-      ball.className = 'ball' + (isBonus(p) ? ' bonus' : '');
-      ball.textContent = num(i);
-      lbl.textContent = p.label;
-      name.textContent = p.name;
-      who.textContent = state.winners[i];
-      el.results.append(li);
+      li.innerHTML = '<i class="bulb"></i><span class="lbl"></span><span class="p"></span><b class="who"></b>';
+      li.firstChild.style.setProperty('--c', BULBS[(i * 7) % BULBS.length]);
+      li.children[1].textContent = p.label;
+      li.children[2].textContent = p.name;
+      li.children[3].textContent = state.winners[i] || '—';
+      ol.append(li);
     });
   }
 
   function showResults() {
-    XMAS.audio.stopMusic();
+    XMAS.tree.cancel();
     renderResults();
     XMAS.ui.show('results', { badge: 'Final results', tone: 'final', counter: `${state.prizes.length} winners` });
-    XMAS.fx.rain(220);
-    XMAS.audio.fanfare(true);
+    XMAS.fx.rain(200);
+    XMAS.audio.celebrate(false);
   }
 
   function resultsText() {
     if (!state) return '';
-    const lines = state.prizes.map((p, i) => `${num(i)}  ${p.label} — ${p.name}: ${state.winners[i]}`);
+    const lines = state.prizes.map((p, i) => `${num(i)}  ${p.label} — ${p.name}: ${state.winners[i] || '(not drawn)'}`);
     return `Soon Family Christmas Lucky Draw 2025 — Winners\n\n${lines.join('\n')}\n`;
   }
 
-  /* ---- Public ---- */
+  /* ---------- Public ---------- */
   XMAS.draw = {
     start(names, prizes) {
       state = {
         prizes: prizes.map((p) => ({ label: p.label, name: p.name })),
-        winners: XMAS.random.shuffle(names).slice(0, prizes.length),
+        names: names.slice(),
+        winners: [],
         index: 0,
-        revealed: false
+        phase: 'announce',
+        pending: null
       };
       save();
-      this.open();
-      announce(`The draw is live. ${state.prizes[0].label}, ${state.prizes[0].name}. Press Space to draw.`);
+      openPrizeMode();
+      announce(`The draw is live. ${state.prizes[0].label}, ${state.prizes[0].name}. Press Space to light the tree.`);
     },
-    resume(saved) { state = saved; this.open(); },
-    open() {
-      if (state.index >= state.prizes.length - 1 && state.revealed) { showResults(); return; }
-      XMAS.ui.show('draw', { badge: 'Live', tone: 'live' });
-      renderAll();
-      renderStage({ animate: true });
-      XMAS.audio.startMusic();
+    resume(saved) {
+      state = saved;
+      if (!Array.isArray(state.winners) || !Array.isArray(state.names)) { this.clear(); return false; }
+      if (state.winners.length >= state.prizes.length) { showResults(); return true; }
+      openPrizeMode();
+      return true;
     },
+    openPlayers() {
+      mode = 'players';
+      $('draw').classList.add('players');
+      const names = XMAS.app.names();
+      XMAS.ui.show('draw', { badge: 'Game time', tone: 'game', counter: `${names.length} on the tree` });
+      XMAS.tree.layout(names, { picked: new Set(players.picked) });
+      XMAS.tree.reset();
+      XMAS.tree.setStatus(names.length, 'names on the tree');
+      renderPlayers();
+    },
+    clearPlayers() { players.picked = []; XMAS.tree.clearPicked(); renderPlayers(); },
     async next() {
-      if (!state || busy) return;
-      if (!state.revealed) await reveal();
-      else if (!isLast()) await advance();
-      else showResults();
+      if (busy) return;
+      XMAS.audio.unlock();
+      if (mode === 'players') { await runPlayers(); return; }
+      if (!state) return;
+      if (state.phase === 'won') nextPrize();
+      else await runPrize();
     },
     skip() {
-      if (!state || busy) return;
-      if (!confirm('Skip the rest of the draw and show every winner now?')) return;
+      if (mode !== 'prize' || !state) return;
+      if (!confirm('Skip the suspense and draw every remaining prize instantly?')) return;
+      XMAS.tree.cancel();
+      busy = false;
+      let candidates = pool();
+      if (state.phase !== 'won') {
+        const w = state.pending && candidates.includes(state.pending) ? state.pending : candidates[XMAS.random.randomInt(candidates.length)];
+        state.winners.push(w);
+        candidates = candidates.filter((n) => n !== w);
+        state.pending = null;
+      }
+      const order = XMAS.random.shuffle(candidates);
+      while (state.winners.length < state.prizes.length) state.winners.push(order.shift());
       state.index = state.prizes.length - 1;
-      state.revealed = true;
+      state.phase = 'won';
       save();
       showResults();
+    },
+    leave() {
+      XMAS.tree.cancel();
+      busy = false;
+      if (state && state.phase === 'running') { state.phase = 'announce'; save(); }
     },
     reopenResults() { if (state) showResults(); },
     resultsText,
     clear() { state = null; XMAS.store.clearDraw(); },
     get state() { return state; },
-    get busy() { return busy; }
+    get busy() { return busy; },
+    get mode() { return mode; }
   };
 })();

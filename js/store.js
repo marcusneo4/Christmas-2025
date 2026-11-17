@@ -51,6 +51,8 @@
     getDraw: () => read('draw', null),
     setDraw: (d) => write('draw', d),
     clearDraw: () => remove('draw'),
+    getQuick: () => read('quick', false),
+    setQuick: (q) => write('quick', q),
     getMuted: () => read('muted', false),
     setMuted: (m) => write('muted', m)
   };
