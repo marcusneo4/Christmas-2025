@@ -1,6 +1,12 @@
 # Soon Family Christmas Lucky Draw 2025
 
-**Last Light Standing**: a suspense-driven lucky draw for the family Christmas party. Every family member is a glowing bulb on a giant Christmas tree. Press **Space** and the lights go out in waves until four names are left. Those four lift off the tree, two flicker out, and a spotlight swings between the final two until the winner's name flies up and lights the star.
+**Last Light Standing**: a suspense-driven lucky draw for the family Christmas party. Every family member is a glowing bulb on a painted Christmas tree. Press **Space**:
+
+1. The tree powers up and the lights flicker, then go out in waves until four are left.
+2. A camera zooms in on each of the last four lights in turn.
+3. The four drop in as glass baubles on ribbons. They crack (sometimes just to tease), and two shatter.
+4. A spotlight swings between the final two and slows down. After a beat of silence, the loser shatters.
+5. The winner's bauble rises and lights the star, and the whole tree relights.
 
 The same tree also picks players for party games.
 
@@ -16,7 +22,12 @@ The screen is laid out at 1920×1080 and scales to fit any window. Press F11 for
 ## On the night
 
 1. **Setup:** check the contestant list (the family list is pre-filled) and the prize board. Both are editable, and edits are saved in this browser. You can also upload a CSV or TXT file of names.
-2. **Start the lucky draw:** each prize is announced first. Press **Space** (or click the tree) to light the tree and run the round (about 40 seconds, or 20 in *Quick* mode), then **Space** again for the next prize. The grand prize always gets the full show.
+2. **Start the lucky draw:** each prize is announced first. Press **Space** (or click the tree) to light the tree and run the round, then **Space** again for the next prize. The *Suspense* setting on the setup screen controls the length of each round:
+   - *Auto* (default): the full show (about 50 seconds) for ranked prizes, a quick version (about 25 seconds) for bonus prizes.
+   - *Full*: the full show for every prize.
+   - *Quick*: the quick version for every prize.
+
+   The grand prize always gets the full show.
 3. **Results:** after the grand prize, the full winners board appears. Download it as a text file.
 
 | Key | Action |
@@ -45,8 +56,10 @@ js/data.js        default names and prizes
 js/store.js       saving to the browser + fair randomness
 js/audio.js       synthesized soundscape: heartbeat, bells, sleigh bells, power-downs
 js/fx.js          confetti
-js/tree.js        the tree, the light waves, finals, spotlight and star
+js/scene.js       painted fir tree, drifting bokeh, falling snow (canvas)
+js/tree.js        the show: light waves, camera roll-call, glass baubles, spotlight, star
 js/draw.js        prize rounds, game-player picks, results
 js/app.js         setup screen, keyboard, screen switching
 fonts/            Big Shoulders Display and Archivo (self-hosted)
+vendor/gsap.min.js  GSAP 3.13 animation library (local copy, works offline)
 ```

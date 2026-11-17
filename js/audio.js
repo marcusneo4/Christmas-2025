@@ -69,7 +69,7 @@
     const modGain = ctx.createGain();
     const g = ctx.createGain();
     car.frequency.value = freq;
-    mod.frequency.value = freq * 3.5;
+    mod.frequency.value = Math.min(freq * 3.5, 18000);
     modGain.gain.setValueAtTime(freq * 2.2, t);
     modGain.gain.exponentialRampToValueAtTime(freq * 0.05, t + 0.4);
     mod.connect(modGain).connect(car.frequency);
@@ -253,6 +253,70 @@
         o.connect(g); route(g, 0.5);
         o.start(t); o.stop(t + 5);
       });
+    },
+
+    /* Electrical flutter before a wave: every bulb dips at once. */
+    buzz(seconds = 0.6) {
+      if (!ensure()) return;
+      const t = ctx.currentTime + 0.01;
+      const o = ctx.createOscillator();
+      const f = ctx.createBiquadFilter();
+      const g = ctx.createGain();
+      o.type = 'sawtooth'; o.frequency.value = 100;
+      f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 3;
+      g.gain.setValueAtTime(0.0001, t);
+      for (let k = 0; k < seconds; k += 0.06) g.gain.setValueAtTime(Math.random() < 0.5 ? 0.05 : 0.005, t + k);
+      g.gain.setValueAtTime(0.0001, t + seconds);
+      o.connect(f).connect(g); route(g, 0.2);
+      o.start(t); o.stop(t + seconds + 0.05);
+    },
+
+    /* The tree powering up. */
+    powerUp() {
+      if (!ensure()) return;
+      const t = ctx.currentTime + 0.01;
+      noise(t, 0.06, { freq: 1200, q: 2, gain: 0.2, wet: 0.2 });
+      thump(t, { freq: 60, gain: 0.5, dur: 0.4 });
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(60, t);
+      o.frequency.exponentialRampToValueAtTime(240, t + 1.2);
+      env(g, t, 0.05, 0.3, 1.2);
+      o.connect(g); route(g, 0.4);
+      o.start(t); o.stop(t + 1.6);
+    },
+
+    /* Deep cinematic hit for a close-up. */
+    boom() {
+      if (!ensure()) return;
+      const t = ctx.currentTime + 0.01;
+      thump(t, { freq: 46, gain: 0.75, dur: 0.9 });
+      noise(t, 1.6, { type: 'lowpass', freq: 160, gain: 0.16, wet: 0.8 });
+      bell(392, t + 0.02, { gain: 0.04, decay: 2.4, wet: 0.8 });
+    },
+
+    /* Glass starting to crack. */
+    crack(intensity = 1) {
+      if (!ensure()) return;
+      const t = ctx.currentTime + 0.01;
+      const n = 3 + Math.round(intensity * 4);
+      for (let i = 0; i < n; i++) {
+        noise(t + i * (0.018 + Math.random() * 0.03), 0.02, { freq: 3500 + Math.random() * 4000, q: 5, gain: 0.08 + intensity * 0.06, wet: 0.25 });
+      }
+      bell(2400 + Math.random() * 1200, t, { gain: 0.025, decay: 0.5, wet: 0.4 });
+    },
+
+    /* A glass ornament smashing. */
+    shatter() {
+      if (!ensure()) return;
+      const t = ctx.currentTime + 0.01;
+      noise(t, 0.35, { type: 'highpass', freq: 2500, gain: 0.35, wet: 0.4 });
+      noise(t, 0.12, { freq: 1800, q: 1, gain: 0.3, wet: 0.2 });
+      thump(t, { freq: 80, gain: 0.45, dur: 0.25 });
+      for (let i = 0; i < 16; i++) {
+        bell(2500 + Math.random() * 2500, t + 0.05 + Math.random() * 0.9, { gain: 0.02 + Math.random() * 0.03, decay: 0.35 + Math.random() * 0.5, wet: 0.5 });
+      }
     },
 
     /* Soft confirmation for UI actions. */

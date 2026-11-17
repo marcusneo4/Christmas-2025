@@ -69,7 +69,7 @@
       pool: candidates,
       winner: state.pending,
       grand: isGrand(),
-      quick: XMAS.settings.quick && !isGrand(),
+      quick: !isGrand() && (XMAS.settings.suspense === 'quick' || (XMAS.settings.suspense === 'auto' && /bonus/i.test(p.label))),
       plateLabel: isGrand() ? 'Grand prize winner' : 'Lights the star!',
       prizeText: `${p.label} · ${p.name}`
     });

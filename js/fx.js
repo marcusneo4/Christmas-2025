@@ -47,7 +47,11 @@
       g.rotate(p.r);
       g.scale(1, Math.cos(p.r * 2));
       g.fillStyle = p.c;
-      g.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      if (p.shard) {
+        g.beginPath();
+        g.moveTo(-p.w / 2, p.h / 2); g.lineTo(p.w / 2, p.h / 3); g.lineTo(0, -p.h / 2);
+        g.closePath(); g.fill();
+      } else g.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
       g.restore();
     });
     pieces = pieces.filter((p) => p.life > 0);
@@ -71,6 +75,22 @@
     /* Confetti falling from the top for `frames` frames. */
     rain(frames = 240) {
       rain = reduce.matches ? 40 : frames;
+      start();
+    },
+    /* Glass shards bursting from (x, y) in CSS pixels. */
+    shatter(x, y, color, scale = 1) {
+      const n = reduce.matches ? 18 : 90;
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const s = (3 + Math.random() * 12) * scale;
+        const p = piece(x + Math.cos(a) * 30 * scale, y + Math.sin(a) * 30 * scale, Math.cos(a) * s, Math.sin(a) * s - 4);
+        p.shard = true;
+        p.w = (6 + Math.random() * 18) * scale;
+        p.h = (4 + Math.random() * 12) * scale;
+        p.c = Math.random() < 0.3 ? 'rgba(255,255,255,.9)' : color;
+        p.vr = (Math.random() - 0.5) * 0.6;
+        pieces.push(p);
+      }
       start();
     },
     clear() { pieces = []; rain = 0; }

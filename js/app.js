@@ -171,13 +171,16 @@
   $('go-players').addEventListener('click', () => { XMAS.audio.unlock(); XMAS.draw.openPlayers(); });
 
   /* ---- Suspense speed ---- */
-  XMAS.settings = { quick: XMAS.store.getQuick() };
+  const savedSpeed = XMAS.store.getSuspense();
+  XMAS.settings = { suspense: ['auto', 'full', 'quick'].includes(savedSpeed) ? savedSpeed : 'auto' };
   function renderSpeed() {
-    $('speed-full').setAttribute('aria-checked', String(!XMAS.settings.quick));
-    $('speed-quick').setAttribute('aria-checked', String(XMAS.settings.quick));
+    ['auto', 'full', 'quick'].forEach((m) => $('speed-' + m).setAttribute('aria-checked', String(XMAS.settings.suspense === m)));
   }
-  $('speed-full').addEventListener('click', () => { XMAS.settings.quick = false; XMAS.store.setQuick(false); renderSpeed(); });
-  $('speed-quick').addEventListener('click', () => { XMAS.settings.quick = true; XMAS.store.setQuick(true); renderSpeed(); });
+  ['auto', 'full', 'quick'].forEach((m) => $('speed-' + m).addEventListener('click', () => {
+    XMAS.settings.suspense = m;
+    XMAS.store.setSuspense(m);
+    renderSpeed();
+  }));
 
   /* ---- Draw / results controls ---- */
   $('tree-wrap').addEventListener('click', () => XMAS.draw.next());
