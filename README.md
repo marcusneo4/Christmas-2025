@@ -1,74 +1,50 @@
-# Soon Family Christmas Lucky Draw 2025 🎄
+# Soon Family Christmas Lucky Draw 2025
 
-A beautiful, interactive Christmas lucky draw application with animations, sound effects, and prize reveals!
+A live, TV-lottery-style lucky draw for the family Christmas party. Plug a laptop into the TV, press **Space**, and reveal 17 prizes one by one: drum spin, ball drop, winner banner, confetti. Includes a claw machine for picking party-game players.
 
-## 🎁 Features
+**Live:** https://marcusneo4.github.io/Christmas-2025/
 
-- **Countdown from 10th to 1st Place** - Build excitement as you reveal winners from smallest to biggest prizes
-- **Interactive Loot Box Animation** - Click to open gift boxes with epic visual effects
-- **10 Amazing Prizes** - From cozy gifts to the grand prize tablet + $300 cash
-- **Sound Effects & Music** - Festive background music and celebration sounds
-- **Beautiful Design** - Snowflakes, Christmas lights, and glassmorphism UI
-- **Results Export** - Download the winners list as a text file
+## Running it
 
-## 🚀 How to Run
+- **Online:** open the link above.
+- **Offline:** double-click `index.html`, or run `START_SERVER.bat` (uses Python if installed).
 
-### Method 1: Double-click START_SERVER.bat (Recommended)
-Just double-click the `START_SERVER.bat` file and your browser will automatically open the application!
+The screen is laid out at 1920×1080 and scales to fit any window. Press F11 for full screen on the TV.
 
-### Method 2: Manual Python Server
-```bash
-# Open command prompt in this folder and run:
-python -m http.server 8080
+## On the night
 
-# Then open browser to:
-http://localhost:8080
+1. **Setup:** check the contestant list (the family list is pre-filled) and the prize board. Both are editable, and edits are saved in this browser. You can also upload a CSV or TXT file of names.
+2. **Go live:** each prize is announced first. Press **Space** (or click the white banner) to draw the winner, then **Space** again for the next prize.
+3. **Results:** after the grand prize, the full winners board appears. Download it as a text file.
+
+| Key | Action |
+| --- | --- |
+| Space / Enter / → | Draw / next prize / pick a player |
+| S | Skip to results (asks first) |
+| Esc | Back to setup |
+| M | Sound on/off |
+
+If the page is reloaded mid-draw, setup shows **Resume draw**, and nobody's win is lost.
+
+## Fairness
+
+Winners are chosen up front with a Fisher–Yates shuffle driven by `crypto.getRandomValues`, the browser's cryptographic random number generator. Each person can win once. Names that appear twice are counted once, and setup tells you which ones, so add a surname if two different people share a name.
+
+## Editing defaults
+
+Default names and prizes live in `js/data.js`. Prizes are drawn top to bottom; any prize label containing "Bonus" gets a blue ball.
+
+## Files
+
 ```
-
-### Method 3: Direct File Opening
-Simply double-click `index.html` to open directly in your browser.
-
-## 📋 How to Use
-
-1. **Add Participants**: Enter names (one per line) or upload a CSV/TXT file
-2. **Start Draw**: Click "Start Lucky Draw" when you have at least 10 participants
-3. **Reveal Winners**: Click each gift box to reveal winners from 10th place to 1st place
-4. **View Results**: See all winners with their prizes on the final results screen
-5. **Export**: Download the results or start a new draw
-
-## 🏆 Prize List
-
-- **10th Place:** Christmas Mug & Hot Cocoa Set
-- **9th Place:** Festive Candle Collection
-- **8th Place:** Premium Wine Bottle
-- **7th Place:** Gourmet Chocolate Gift Box
-- **6th Place:** Cozy Winter Blanket
-- **5th Place:** Wireless Bluetooth Speaker
-- **4th Place:** $100 Shopping Voucher
-- **3rd Place:** Luxury Spa Gift Set
-- **2nd Place:** $200 Dining Experience Voucher
-- **1st Place:** 🎁 **GRAND PRIZE: Latest Tablet + $300 Cash**
-
-## ⚙️ Customization
-
-To change prize names, edit the `prizes` array in `script.js`:
-
-```javascript
-const prizes = [
-    "Your 10th Prize",  // 10th place
-    "Your 9th Prize",   // 9th place
-    // ... etc
-    "Your Grand Prize"  // 1st place
-];
+index.html        screens: setup, draw, claw machine, results
+css/styles.css    the studio look
+js/data.js        default names and prizes
+js/store.js       saving to the browser + fair randomness
+js/audio.js       synthesized sound effects and music
+js/fx.js          confetti
+js/draw.js        the live draw and results
+js/claw.js        claw machine
+js/app.js         setup screen, keyboard, screen switching
+fonts/            Big Shoulders Display and Archivo (self-hosted)
 ```
-
-## 🎨 Files
-
-- `index.html` - Main application structure
-- `styles.css` - Beautiful Christmas-themed styling
-- `script.js` - Interactive animations and draw logic
-- `START_SERVER.bat` - Easy server launcher
-
-## 🎄 Enjoy your Christmas Party!
-
-Merry Christmas from the Soon Family! 🎅🎁✨
