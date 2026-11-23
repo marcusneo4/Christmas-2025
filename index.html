@@ -22,6 +22,9 @@
     <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4Z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
     <symbol id="i-mute" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4Z" fill="currentColor"/><path d="m17 9 5 6m0-6-5 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
     <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.4" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M3 20c.6-3.4 3-5.4 6-5.4s5.4 2 6 5.4M16 4.8a3.4 3.4 0 0 1 0 6.4M18 14.8c1.7.7 2.7 2.5 3 5.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+    <symbol id="i-grip" viewBox="0 0 24 24"><g fill="currentColor"><circle cx="9" cy="6" r="1.7"/><circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></g></symbol>
+    <symbol id="i-redraw" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v4h-4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5Z" fill="currentColor"/></symbol>
   </svg>
 
   <div class="stage" id="stage">
@@ -60,17 +63,31 @@
           <div class="panel-head">
             <h2>Prizes</h2>
             <span class="panel-meta" id="prize-meta"></span>
+            <div class="seg" role="tablist" aria-label="Prize editor view">
+              <button type="button" role="tab" id="view-list" aria-selected="true">List</button>
+              <button type="button" role="tab" id="view-paste" aria-selected="false">Paste</button>
+            </div>
           </div>
-          <ol class="prize-edit" id="prize-edit"></ol>
+          <ol class="prize-edit" id="prize-edit" aria-label="Prizes in rank order, 1st prize first"></ol>
+          <label class="sr-only" for="prize-text">Prizes, one per line, 1st prize first</label>
+          <textarea id="prize-text" class="prize-text" spellcheck="false" hidden placeholder="One prize per line. The first line is the 1st prize, the second line the 2nd prize, and so on."></textarea>
           <div class="panel-foot">
             <button class="btn ghost" id="add-prize" type="button"><svg><use href="#i-plus"/></svg>Add prize</button>
-            <div class="speed" role="radiogroup" aria-label="Suspense">
-              <span>Suspense</span>
-              <button type="button" role="radio" id="speed-auto" aria-checked="true" title="Full show for ranked prizes, quick for bonus prizes">Auto</button>
-              <button type="button" role="radio" id="speed-full" aria-checked="false">Full</button>
-              <button type="button" role="radio" id="speed-quick" aria-checked="false">Quick</button>
-            </div>
             <button class="btn link" id="reset-prizes" type="button"><svg><use href="#i-reset"/></svg>Restore defaults</button>
+          </div>
+          <div class="show-row">
+            <div class="stepper" aria-label="Prizes that get the full show">
+              <span>Full show for the top</span>
+              <button type="button" id="full-minus" aria-label="Fewer full shows">−</button>
+              <output id="full-count">5</output>
+              <button type="button" id="full-plus" aria-label="More full shows">+</button>
+            </div>
+            <div class="seg" role="radiogroup" aria-label="The other prizes">
+              <span>The rest</span>
+              <button type="button" role="radio" id="rest-quick" aria-checked="true" title="Each prize gets its own short show">Quick</button>
+              <button type="button" role="radio" id="rest-batch3" aria-checked="false" title="Three prizes drawn in one round">3 at once</button>
+              <button type="button" role="radio" id="rest-batch5" aria-checked="false" title="Five prizes drawn in one round">5 at once</button>
+            </div>
           </div>
         </div>
       </div>
@@ -85,7 +102,14 @@
       <div class="setup-actions">
         <button class="btn primary xl" id="go-live" type="button"><svg><use href="#i-star"/></svg>Start the lucky draw</button>
         <button class="btn secondary xl" id="go-players" type="button"><svg><use href="#i-users"/></svg>Pick game players</button>
-        <p class="go-hint" id="go-hint"></p>
+        <div class="go-row">
+          <p class="go-hint" id="go-hint"></p>
+          <div class="rehearse">
+            <span>Rehearsal</span>
+            <button class="btn link" id="rehearse-mine" type="button"><svg><use href="#i-play"/></svg>With my list</button>
+            <button class="btn link" id="rehearse-test" type="button"><svg><use href="#i-play"/></svg>With 150 test names</button>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -99,6 +123,10 @@
           <span class="status-text" id="status-text"></span>
         </div>
         <p class="cue" id="cue"></p>
+        <div class="redraw" id="redraw" hidden>
+          <button class="btn ghost" id="redraw-btn" type="button"><svg><use href="#i-redraw"/></svg>Not here? Redraw</button>
+          <div class="redraw-pick" id="redraw-pick" hidden></div>
+        </div>
         <h3 class="recent-head" id="recent-head" hidden>Already won</h3>
         <ol class="recent" id="recent"></ol>
         <p class="progress" id="progress"></p>
@@ -108,13 +136,15 @@
         <div class="room" aria-hidden="true"></div>
         <div class="camera" id="camera">
           <canvas class="tree-canvas" id="tree-canvas" aria-hidden="true"></canvas>
-          <div class="halos" id="halos" aria-hidden="true"></div>
-          <svg class="tree-svg" id="tree-svg" viewBox="0 0 1320 1080" aria-hidden="true"></svg>
+          <div class="tree-shade" aria-hidden="true"></div>
+        </div>
+        <canvas class="lights-canvas" id="lights-canvas" aria-hidden="true"></canvas>
+        <div class="camera" id="camera-top">
+          <div class="labels" id="labels" aria-hidden="true"></div>
           <div class="star" id="star" aria-hidden="true">
             <div class="rays"></div>
             <svg viewBox="0 0 24 24"><use href="#i-star"/></svg>
           </div>
-          <div class="lights" id="lights"></div>
         </div>
         <div class="closeup" id="closeup" aria-hidden="true"><span>Still glowing</span><b></b></div>
         <div class="beam" id="beam" aria-hidden="true"></div>
@@ -124,6 +154,7 @@
           <span class="wp-label"></span>
           <b class="wp-name"></b>
           <span class="wp-prize"></span>
+          <ol class="wp-list"></ol>
         </div>
       </div>
       <canvas class="snow" id="snow" aria-hidden="true"></canvas>
@@ -131,6 +162,8 @@
       <footer class="keys">
         <span><kbd>Space</kbd>Go</span>
         <span id="skip-key"><kbd>S</kbd>Skip all</span>
+        <span id="redraw-key"><kbd>R</kbd>Redraw</span>
+        <span id="fast-key" hidden><kbd>F</kbd><b id="fast-label">Fast-forward</b></span>
         <span><kbd>Esc</kbd>Setup</span>
         <span><kbd>M</kbd>Sound</span>
       </footer>
@@ -149,6 +182,8 @@
         <button class="btn ghost" id="new-draw" type="button"><svg><use href="#i-reset"/></svg>New draw</button>
       </div>
     </section>
+    <div class="blackout" id="blackout" aria-hidden="true"></div>
+    <div class="ember" id="ember" aria-hidden="true"></div>
   </div>
 
   <canvas id="confetti" aria-hidden="true"></canvas>
@@ -159,6 +194,7 @@
   <script src="js/store.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/fx.js"></script>
+  <script src="js/glass.js"></script>
   <script src="js/scene.js"></script>
   <script src="js/tree.js"></script>
   <script src="js/draw.js"></script>

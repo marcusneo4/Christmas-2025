@@ -32,7 +32,11 @@ A family-owned party ritual, not a generic raffle tool: it carries the Soon fami
 ## Capabilities and Constraints
 
 - Participants: typed (one per line), uploaded CSV/TXT, or the built-in family list (kept in the repo by the owner's decision).
-- Prize ladder: 17 winners — 10 main prizes counted down from 10th to 1st, with 7 "after Nth" bonus prizes in between. Default list lives in code; the host can edit prizes on the setup screen.
+- Participants: up to 150 (bulbs on a canvas-drawn spiral garland; names appear once 40 or fewer remain).
+- Prize ladder: a ranked list entered 1st prize first (pure ranking, no bonus tier). The draw counts up from the last prize to the 1st; the number of rounds follows the list. The top N prizes get the full show; the rest get a quick show or are drawn 3 or 5 at a time.
+- The 1st prize has its own finale: both finalists burst, black-and-silent pause, an ember reveals the winner.
+- Crack damage and the spotlight are theatre only and must never predict the winner.
+- "Not here? Redraw" marks a winner absent and redraws that prize; rehearsal mode never touches the saved draw.
 - Duplicate names are removed; each person can win at most once.
 - The game-player picker chooses players one at a time from the same participant list, without repeats until the list is exhausted.
 - Winners are chosen live at the moment of each reveal, never in advance.

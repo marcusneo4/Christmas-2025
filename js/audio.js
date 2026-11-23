@@ -8,6 +8,7 @@
   let muted = XMAS.store.getMuted();
   let heart = null;    // { timer, bpm }
   let pad = null;      // { oscs, filter, gain }
+  let silenced = false;
 
   function impulse(seconds = 2.4, decay = 3) {
     const rate = ctx.sampleRate;
@@ -325,13 +326,100 @@
       bell(1318.5, ctx.currentTime + 0.01, { gain: 0.05, decay: 0.6, wet: 0.2 });
     },
 
-    stopAll() { this.stopHeartbeat(); this.stopTension(0.3); },
+    /* Glass under stress: a low, wavering groan. */
+    creak(intensity = 0.6) {
+      if (!ensure()) return;
+      const t = ctx.currentTime + 0.01;
+      const dur = 0.5 + intensity * 0.7;
+      const f = noise(t, dur, { freq: 700 + Math.random() * 500, q: 9, gain: 0.05 + intensity * 0.07, wet: 0.35, attack: dur * 0.4 });
+      f.frequency.exponentialRampToValueAtTime(380 + Math.random() * 200, t + dur);
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(240 + Math.random() * 80, t);
+      o.frequency.linearRampToValueAtTime(190 + Math.random() * 60, t + dur);
+      env(g, t, 0.012 + intensity * 0.02, dur * 0.5, dur * 0.5);
+      o.connect(g); route(g, 0.3);
+      o.start(t); o.stop(t + dur + 0.05);
+    },
+
+    /* A chip of glass skittering away. */
+    tinkle() {
+      if (!ensure()) return;
+      const t = ctx.currentTime + 0.01;
+      for (let i = 0; i < 3; i++) bell(3200 + Math.random() * 2400, t + i * (0.05 + Math.random() * 0.08), { gain: 0.018, decay: 0.3, wet: 0.5 });
+    },
+
+    /* Thin rising whine as glass reaches breaking point. */
+    stress(seconds = 1.5, level = 1) {
+      if (!ensure()) return;
+      const t = ctx.currentTime + 0.01;
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(700, t);
+      o.frequency.exponentialRampToValueAtTime(2600 + level * 900, t + seconds);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.02 + level * 0.025, t + seconds * 0.9);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + seconds + 0.05);
+      o.connect(g); route(g, 0.4);
+      o.start(t); o.stop(t + seconds + 0.1);
+      noise(t, seconds, { freq: 1800, q: 12, gain: 0.03 * level, wet: 0.3, attack: seconds * 0.8 });
+    },
+
+    /* Both finalists exploding together. */
+    bigBurst() {
+      if (!ensure()) return;
+      const t = ctx.currentTime + 0.01;
+      thump(t, { freq: 42, gain: 0.9, dur: 0.9 });
+      noise(t, 0.6, { type: 'highpass', freq: 2000, gain: 0.45, wet: 0.5 });
+      noise(t, 0.25, { freq: 1200, q: 0.8, gain: 0.4, wet: 0.3 });
+      for (let i = 0; i < 26; i++) {
+        bell(2200 + Math.random() * 3200, t + 0.03 + Math.random() * 0.5, { gain: 0.02 + Math.random() * 0.03, decay: 0.3 + Math.random() * 0.4, wet: 0.6 });
+      }
+    },
+
+    /* Cut every sound to dead silence (reverb tails included); restore() brings it back. */
+    silence(fade = 0.08) {
+      if (!ensure() || !api._out) return;
+      silenced = true;
+      this.stopHeartbeat();
+      this.stopTension(0.05);
+      api._out.gain.cancelScheduledValues(ctx.currentTime);
+      api._out.gain.setTargetAtTime(0, ctx.currentTime, fade / 3);
+    },
+    restore() {
+      if (!ctx || !api._out) return;
+      silenced = false;
+      api._out.gain.cancelScheduledValues(ctx.currentTime);
+      api._out.gain.setTargetAtTime(muted ? 0 : 0.8, ctx.currentTime, 0.02);
+    },
+
+    /* The ember catching: one soft bell over a warm swell. */
+    ignite() {
+      if (!ensure()) return;
+      const t = ctx.currentTime + 0.02;
+      bell(784, t, { gain: 0.09, decay: 3, wet: 0.7 });
+      bell(1568, t + 0.02, { gain: 0.035, decay: 2.6, wet: 0.7 });
+      [196, 293.66, 392].forEach((f) => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sine'; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.03, t + 1.2);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 3.2);
+        o.connect(g); route(g, 0.6);
+        o.start(t); o.stop(t + 3.4);
+      });
+    },
+
+    stopAll() { this.stopHeartbeat(); this.stopTension(0.3); if (silenced) this.restore(); },
 
     isMuted: () => muted,
     setMuted(m) {
       muted = m;
       XMAS.store.setMuted(m);
-      if (api._out) api._out.gain.setTargetAtTime(m ? 0 : 0.8, ctx.currentTime, 0.05);
+      if (api._out && !silenced) api._out.gain.setTargetAtTime(m ? 0 : 0.8, ctx.currentTime, 0.05);
     }
   };
 

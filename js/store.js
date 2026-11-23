@@ -32,11 +32,17 @@
   }
 
   /* Split text into unique, trimmed names; report duplicates so the host can tell two people apart. */
-  function parseNames(text) {
+  /* One name per line. For a CSV file, take the first column and skip a "name" header. */
+  function parseNames(text, { csv = false } = {}) {
     const seen = new Set();
     const names = [];
     const dupes = [];
-    text.split(/\r?\n|,/).map((s) => s.trim()).filter(Boolean).forEach((n) => {
+    let lines = text.split(/\r?\n/);
+    if (csv) {
+      lines = lines.map((l) => { const m = l.match(/^\s*"([^"]*)"|^([^,]*)/); return (m[1] ?? m[2] ?? '').trim(); });
+      if (lines.length && /^(full )?names?$/i.test(lines[0])) lines.shift();
+    }
+    lines.map((s) => s.trim()).filter(Boolean).forEach((n) => {
       const key = n.toLowerCase();
       if (seen.has(key)) dupes.push(n); else { seen.add(key); names.push(n); }
     });
@@ -46,8 +52,17 @@
   XMAS.store = {
     getNamesText: () => read('namesText', null),
     setNamesText: (t) => write('namesText', t),
-    getPrizes: () => read('prizes', null),
-    setPrizes: (p) => write('prizes', p),
+    /* Ranked prize names, 1st prize first. Older saves (draw order, with labels) are migrated once. */
+    getRanked() {
+      const ranked = read('ranked', null);
+      if (Array.isArray(ranked)) return ranked.map(String);
+      const old = read('prizes', null);
+      if (Array.isArray(old) && old.length) return old.slice().reverse().map((p) => String((p && p.name) || '')).filter(Boolean);
+      return null;
+    },
+    setRanked: (list) => write('ranked', list),
+    getShow: () => read('show', { fullTop: 5, rest: 'quick' }),
+    setShow: (v) => write('show', v),
     getDraw: () => read('draw', null),
     setDraw: (d) => write('draw', d),
     clearDraw: () => remove('draw'),

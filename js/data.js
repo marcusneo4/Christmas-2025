@@ -14,23 +14,28 @@ XMAS.DEFAULT_NAMES = [
   'Johannes', 'Mikael', 'Margorie'
 ];
 
-/* Reveal order: first item is drawn first. `label` is what the board and banner announce. */
+/* Prizes in rank order: the first item is the 1st prize. The draw counts up from the last
+   prize, so the 1st prize is always the finale. */
 XMAS.DEFAULT_PRIZES = [
-  { label: '10th prize', name: 'BBQ grill' },
-  { label: 'Bonus prize', name: 'One year supply of Milo' },
-  { label: '9th prize', name: 'Air fryer' },
-  { label: 'Bonus prize', name: 'Massage package' },
-  { label: '8th prize', name: 'Gold Class ticket + $80 voucher' },
-  { label: 'Bonus prize', name: 'Spa package' },
-  { label: '7th prize', name: 'AirPods Pro' },
-  { label: 'Bonus prize', name: 'Universal Studios tickets' },
-  { label: '6th prize', name: 'Apple Watch' },
-  { label: 'Bonus prize', name: 'Disneyland tickets' },
-  { label: '5th prize', name: '$400' },
-  { label: 'Bonus prize', name: 'Trip to Korea' },
-  { label: '4th prize', name: '$500' },
-  { label: 'Bonus prize', name: '$1000 cash' },
-  { label: '3rd prize', name: '$600' },
-  { label: '2nd prize', name: 'iPad Wi-Fi 256GB' },
-  { label: 'Grand prize', name: 'iPhone 17 Pro' }
+  'iPhone 17 Pro',
+  'iPad Wi-Fi 256GB',
+  '$600',
+  '$500',
+  '$400',
+  'Apple Watch',
+  'AirPods Pro',
+  'Gold Class ticket + $80 voucher',
+  'Air fryer',
+  'BBQ grill'
 ];
+
+/* 150 made-up names for a rehearsal run (never saved, never mixed into the real list). */
+XMAS.testNames = function (n = 150) {
+  const first = ['Mei Ling', 'Wei Jie', 'Aunty Rose', 'Uncle Tan', 'Hui Min', 'Jun Hao', 'Grace', 'Daniel', 'Siew Lan', 'Kok Wah',
+    'Priya', 'Arjun', 'Nurul', 'Hafiz', 'Chloe', 'Ethan', 'Isabelle', 'Lucas', 'Pei Shan', 'Zhi Hao', 'Ah Ma', 'Ah Gong',
+    'Rachel', 'Bryan', 'Joanne', 'Kelvin', 'Valerie', 'Jasper', 'Felicia', 'Desmond'];
+  const last = ['T.', 'L.', 'W.', 'C.', 'N.', 'K.', 'S.', 'H.', 'Y.', 'G.'];
+  const out = [];
+  for (let i = 0; out.length < n; i++) out.push(`${first[i % first.length]} ${last[Math.floor(i / first.length) % last.length]}`);
+  return out;
+};
