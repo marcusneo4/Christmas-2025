@@ -70,3 +70,10 @@ js/app.js         setup screen, keyboard, screen switching
 fonts/            Big Shoulders Display and Archivo (self-hosted)
 vendor/gsap.min.js  GSAP 3.13 animation library (local copy, works offline)
 ```
+
+## Pacing and speed
+
+- The show is now slower and more suspenseful at ×1: the lights power up in a ~5s chase, each bulb fades out slowly with a flicker, and near-miss bulbs almost go out before recovering.
+- Names are on the tree from the start when 70 or fewer are in (with 150, they appear at the 64 mark).
+- Speed ×1 / ×1.5 / ×2 / ×3: corner button or keys 1–4, any time. The default is remembered and the time estimate follows it.
+- Each prize is announced with a drumroll and the name building in.

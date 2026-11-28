@@ -326,6 +326,22 @@
       bell(1318.5, ctx.currentTime + 0.01, { gain: 0.05, decay: 0.6, wet: 0.2 });
     },
 
+    /* A snare roll that accelerates and swells, landing on a low hit: the prize announcement. */
+    drumroll(seconds = 1.6) {
+      if (!ensure()) return;
+      const t0 = ctx.currentTime + 0.05;
+      const hits = Math.round(seconds * 24);
+      for (let i = 0; i < hits; i++) {
+        const k = i / hits;
+        const t = t0 + seconds * (1 - Math.pow(1 - k, 1.6));
+        noise(t, 0.07, { type: 'bandpass', freq: 1700 + k * 1400, q: 0.9, gain: 0.025 + 0.11 * k, wet: 0.15 });
+      }
+      const end = t0 + seconds;
+      thump(end, { freq: 66, gain: 0.5, dur: 0.35 });
+      noise(end, 0.3, { freq: 900, q: 0.7, gain: 0.26, wet: 0.4 });
+      bell(523.25, end, { gain: 0.05, decay: 1.4, wet: 0.5 });
+    },
+
     /* Glass under stress: a low, wavering groan. */
     creak(intensity = 0.6) {
       if (!ensure()) return;

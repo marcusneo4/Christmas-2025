@@ -17,6 +17,7 @@
     show(id, { badge = 'Pre-show', tone = '', counter = '' } = {}) {
       document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('active', s.id === id));
       current = id;
+      stage.dataset.screen = id;
       $('badge').className = 'badge' + (tone ? ' ' + tone : '');
       $('badge-text').textContent = badge;
       this.setCounter(counter);
@@ -26,6 +27,29 @@
     setCounter(t) { $('counter').textContent = t; },
     get current() { return current; }
   };
+
+  /* ---- Speed: x1 is the full, slow suspense; x1.5, x2 and x3 speed everything up ---- */
+  const SPEEDS = [1, 1.5, 2, 3];
+  const savedSpeed = XMAS.store.getSpeed();
+  XMAS.settings = { speed: SPEEDS.includes(savedSpeed) ? savedSpeed : 1 };
+  const speedLabel = (v) => '×' + v;
+  function renderSpeed() {
+    const v = XMAS.settings.speed;
+    $('speed-text').textContent = speedLabel(v);
+    $('speed-label').textContent = speedLabel(v);
+    $('speed-btn').setAttribute('aria-label', `Speed ${speedLabel(v)}. Change speed (keys 1 to 4)`);
+  }
+  function applySpeed(v) {
+    XMAS.settings.speed = v;
+    XMAS.store.setSpeed(v);
+    XMAS.tree.setTimeScale(v);
+    renderSpeed();
+    validate();
+  }
+  $('speed-btn').addEventListener('click', () => {
+    applySpeed(SPEEDS[(SPEEDS.indexOf(XMAS.settings.speed) + 1) % SPEEDS.length]);
+    $('speed-btn').blur();
+  });
 
   /* ---- Setup: contestants ---- */
   const namesBox = $('names');
@@ -211,7 +235,7 @@
     if (!usable.length) msg = 'Add at least one prize to start the draw.';
     else if (names.length < usable.length) msg = `Need at least ${usable.length} names for ${usable.length} prizes. You have ${names.length}.`;
     else {
-      const est = XMAS.draw.estimate(usable, show);
+      const est = XMAS.draw.estimate(usable, show, XMAS.settings.speed);
       ok = `${usable.length} prizes · ${names.length} names · ${est.rounds} rounds · about ${est.minutes} min`;
     }
     live.disabled = Boolean(msg);
@@ -303,7 +327,7 @@
         XMAS.draw.next();
       } else if (k === 's' || k === 'S') XMAS.draw.skip();
       else if (k === 'r' || k === 'R') XMAS.draw.redraw();
-      else if (k === 'f' || k === 'F') XMAS.draw.toggleFast();
+      else if (k >= '1' && k <= '4') applySpeed(SPEEDS[Number(k) - 1]);
       else if (k === 'Escape') {
         const rehearsing = XMAS.draw.state && XMAS.draw.state.rehearsal;
         if (XMAS.draw.busy && !rehearsing && XMAS.draw.mode === 'prize' && !confirm('Stop this round and go back to setup? This prize will be drawn again from the start.')) return;
@@ -321,6 +345,8 @@
   readNames();
   renderPrizes();
   renderSound();
+  renderSpeed();
+  XMAS.tree.setTimeScale(XMAS.settings.speed);
   XMAS.app = { names: () => names.slice() };
   goSetup();
 })();

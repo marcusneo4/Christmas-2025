@@ -27,7 +27,7 @@
 
   const G = XMAS.scene.G;
   const CX = G.CX, CY = 540, HANG_Y = 640;
-  const NAMES_AT = 40;
+  const NAMES_AT = 70;   // names are shown whenever this many lights or fewer are on the tree
   const COLORS = ['#ff4d4d', '#ffae2b', '#3fd27f', '#4da3ff', '#ff73bd', '#ffe14d', '#b48cff'];
 
   let lights = new Map();   // name → light
@@ -38,15 +38,35 @@
   let timeScale = 1;
   let token = 0;
   let sway = null;
-  let timers = new Set();
   let dipUntil = 0;
   let labelsDirty = false;
   const look = { alpha: 1 };
 
   const S = (sec) => sec * speed;
-  const wait = (ms) => new Promise((r) => { const id = setTimeout(() => { timers.delete(id); r(); }, (ms * speed) / timeScale); timers.add(id); });
-  const waitRaw = (ms) => new Promise((r) => { const id = setTimeout(() => { timers.delete(id); r(); }, ms / timeScale); timers.add(id); });
-  const later = (fn, ms) => { const id = setTimeout(() => { timers.delete(id); fn(); }, ms / timeScale); timers.add(id); };
+  /* A virtual clock: every wait counts down at the current speed, so changing speed
+     mid-round takes effect straight away. `minReal` is a floor in real milliseconds. */
+  const sleepers = new Set();
+  let tickId = null;
+  function ensureTick() {
+    if (tickId) return;
+    let last = performance.now();
+    tickId = setInterval(() => {
+      const now = performance.now();
+      const dt = (now - last) * timeScale;
+      last = now;
+      sleepers.forEach((s) => {
+        s.left -= dt;
+        if (s.left <= 0 && now >= s.minUntil) { sleepers.delete(s); s.res(); }
+      });
+      if (!sleepers.size) { clearInterval(tickId); tickId = null; }
+    }, 25);
+  }
+  const sleep = (ms, minReal = 0) => new Promise((res) => { sleepers.add({ left: ms, res, minUntil: performance.now() + minReal }); ensureTick(); });
+  const wait = (ms) => sleep(ms * speed);
+  const waitRaw = (ms) => sleep(ms);
+  const later = (fn, ms) => { sleep(ms).then(fn); };
+  const ec = () => timeScale / Math.min(timeScale, 1.5);   // keeps the finale's slow beats slow at x2 and x3
+  const hb = (bpm) => A().heartbeat(bpm * (1 + (timeScale - 1) * 0.3));
   const rand = (n) => XMAS.random.randomInt(n);
   const pickOne = (arr) => arr[rand(arr.length)];
   const pick = (arr, n) => XMAS.random.shuffle(arr).slice(0, n);
@@ -116,7 +136,7 @@
       order.push(L);
     });
     sizeLights();
-    showLabels(n <= 24 ? order : [], false);
+    initialLabels();
   }
 
   function setPos(L, s) {
@@ -126,38 +146,58 @@
   }
 
   /* ---------- Name labels: only shown once the field is small enough to read ---------- */
-  function labelSize(count) { return count <= 4 ? 40 : count <= 12 ? 32 : count <= 24 ? 27 : 23; }
+  function labelSize(count) { return count <= 4 ? 40 : count <= 12 ? 32 : count <= 24 ? 27 : count <= 40 ? 22 : count <= 55 ? 20 : 18; }
 
   function placeLabels(list, positions) {
     const fs = labelSize(list.length);
     labelsEl.style.setProperty('--lfs', fs + 'px');
+    const h = fs * 1.2;
+    const items = list.map((L) => ({ L, p: positions.get(L) || { x: L.x, y: L.y, d: L.d, s: L.s } }))
+      .sort((a, b) => (a.p.s ?? 0) - (b.p.s ?? 0));
     const placed = [];
-    const items = list.map((L) => ({ L, pos: positions.get(L) || { x: L.x, y: L.y } }))
-      .sort((a, b) => a.pos.y - b.pos.y);
-    items.forEach(({ L, pos }) => {
-      const w = L.label.offsetWidth || fs * L.name.length * 0.5;
-      const h = fs * 1.05;
-      const bulb = 30 * (0.78 + 0.3 * (pos.d ?? 1));
-      const options = [bulb + 2, -bulb - h + 6, bulb + h + 2, -bulb - h * 2 + 2, bulb + h * 2 + 2];
-      let best = options[0];
-      for (const dy of options) {
-        const r = { x: pos.x - w / 2 - 6, y: pos.y + dy, w: w + 12, h };
-        if (!placed.some((q) => r.x < q.x + q.w && r.x + r.w > q.x && r.y < q.y + q.h && r.y + r.h > q.y)) { best = dy; break; }
+    items.forEach(({ L, p }) => {
+      const w = (L.label.offsetWidth || fs * L.name.length * 0.55) + 6;
+      const bulb = 30 * (0.78 + 0.3 * (p.d ?? 1));
+      const ys = [bulb + 1, -bulb - h + 8, bulb + h + 1, -bulb - 2 * h + 8, bulb + 2 * h + 1, -bulb - 3 * h + 8];
+      let best = null;
+      search: for (const dy of ys) {
+        for (const fx of [0, -0.45, 0.45]) {
+          const cx = Math.max(w / 2 + 8, Math.min(G.W - w / 2 - 8, p.x + fx * w));
+          const r = { x: cx - w / 2, y: p.y + dy, w, h };
+          let ov = 0;
+          for (const q of placed) {
+            const ox = Math.min(r.x + r.w, q.x + q.w) - Math.max(r.x, q.x);
+            const oy = Math.min(r.y + r.h, q.y + q.h) - Math.max(r.y, q.y);
+            if (ox > 0 && oy > 0) ov += ox * oy;
+          }
+          const cost = ov + Math.abs(dy) * 0.05 + Math.abs(fx) * 30;
+          if (!best || cost < best.cost) best = { cost, dy, cx, r };
+          if (ov === 0) break search;
+        }
       }
-      placed.push({ x: pos.x - w / 2 - 6, y: pos.y + best, w: w + 12, h });
-      L.ly = best;
+      placed.push(best.r);
+      L.ly = best.dy;
+      L.lx = best.cx - p.x;
     });
   }
 
-  function showLabels(list, animate = true) {
+  function showLabels(list, animate = true, hidden = false) {
     const set = new Set(list);
     order.forEach((L) => {
       L.show = set.has(L);
-      L.label.classList.toggle('on', L.show);
+      L.label.classList.toggle('on', L.show && !hidden);
       L.label.classList.toggle('instant', !animate);
     });
     if (list.length) placeLabels(list, new Map());
     labelsDirty = true;
+  }
+
+  /* Small crowds show names straight away; mid-sized ones place them but reveal each as its bulb lights. */
+  function initialLabels() {
+    const n = order.length;
+    if (n <= 24) showLabels(order, false);
+    else if (n <= NAMES_AT) showLabels(order, false, true);
+    else showLabels([], false);
   }
 
   /* Survivors slide along the garland to spread out evenly, so their names have room. */
@@ -183,14 +223,13 @@
   function updateLabels() {
     order.forEach((L) => {
       if (!L.show) return;
-      L.label.style.transform = `translate(${L.x.toFixed(1)}px, ${(L.y + L.ly).toFixed(1)}px) translateX(-50%)`;
+      L.label.style.transform = `translate(${(L.x + L.lx).toFixed(1)}px, ${(L.y + L.ly).toFixed(1)}px) translateX(-50%)`;
       L.label.classList.toggle('lit', L.b > 0.5 && !L.dead);
       L.label.classList.toggle('dead', L.dead);
     });
   }
 
   /* ---------- Render loop ---------- */
-  const FLICK = [1, 0.15, 0.9, 0.05, 0.7, 0, 0.35, 0];
   let last = performance.now();
   function frame(now) {
     requestAnimationFrame(frame);
@@ -211,9 +250,21 @@
       if (L.party) L.b = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(now / 380 + L.tw));
       else L.b += (L.tb - L.b) * Math.min(1, dt * 14);
       if (L.fl) {
-        const k = Math.floor((now - L.fl) / 40);
-        if (k >= FLICK.length) { L.fl = 0; L.b = 0; L.tb = 0; L.pop = 1; L.dead = true; labelsDirty = true; }
-        else L.b = FLICK[k];
+        const t = (now - L.fl) / (L.flDur || 320);
+        if (t >= 1) { L.fl = 0; L.b = 0; L.tb = 0; L.pop = 1; L.dead = true; labelsDirty = true; }
+        else {
+          // a slow fade with a failing-filament stutter
+          const stutter = t < 0.1 || Math.sin(t * 38 + L.tw * 3) > 0.2 ? 1 : 0.3;
+          L.b = Math.pow(1 - t, 1.7) * stutter;
+        }
+      } else if (L.nm) {
+        const t = (now - L.nm) / (L.nmDur || 800);
+        if (t >= 1) L.nm = 0;
+        else {
+          // a near miss: almost out… and back
+          const stutter = Math.sin(t * 46 + L.tw) > 0 ? 1 : 0.5;
+          L.b = Math.max(0.04, 1 - 0.95 * Math.sin(Math.PI * t) * stutter);
+        }
       }
       if (L.pop > 0) L.pop = Math.max(0, L.pop - dt * 3);
       L.eb = L.lifted ? 0 : L.b * (L.party || L.fl ? 1 : dip);
@@ -334,8 +385,7 @@
 
   function reset() {
     token++;
-    timers.forEach((id) => clearTimeout(id));
-    timers.clear();
+    sleepers.clear();
     XMAS.audio.stopAll();
     if (sway) { sway.kill(); sway = null; }
     gsap.killTweensOf([...cams, flash, closeup, blackout, ember, look, '.hang', '.bauble', '.ribbon']);
@@ -358,9 +408,9 @@
       gsap.killTweensOf(L);
       setPos(L, L.s0);
       L.tb = L.won || L.picked ? 0.5 : 0;
-      L.fl = 0; L.pop = 0; L.hot = 0; L.lifted = false; L.party = false; L.dead = false;
+      L.fl = 0; L.nm = 0; L.pop = 0; L.hot = 0; L.lifted = false; L.party = false; L.dead = false;
     });
-    showLabels(order.length <= 24 ? order : [], false);
+    initialLabels();
   }
 
   function markWon(name) { const L = lights.get(name); if (L) { L.won = true; L.tb = 0.5; } }
@@ -474,37 +524,50 @@
     setStatus(pool.length, 'lights on the tree');
     A().powerUp();
     const sorted = pool.map((n) => lights.get(n)).sort((a, b) => a.s - b.s);
+    const span = pool.length > 40 ? 4.6 : 3.6;     // the garland lights up one bulb at a time
     sorted.forEach((L, i) => {
-      const at = (i / sorted.length) * 1.6 + Math.random() * 0.08;
-      gsap.delayedCall(S(at), () => { if (alive()) L.tb = 1; });
+      const at = (i / sorted.length) * span + Math.random() * 0.1;
+      gsap.delayedCall(S(at), () => {
+        if (!alive()) return;
+        L.tb = 1;
+        if (L.show) { L.label.classList.remove('instant'); L.label.classList.add('on'); }
+      });
     });
-    A().lightsOn(S(1.7) + 0.2);
-    await wait(2200);
+    A().lightsOn((S(span) + 0.3) / timeScale);
+    await wait((span + 1) * 1000);
   }
 
   /* Waves of lights going out until `target` remain. Those in `keep` are never put out. */
+  /* The field shrinks in small, suspenseful steps: 150 → 100 → 64 → 40 → 24 → 12 → 6 → 4. */
+  const STEPS = [100, 64, 40, 24, 12, 6, 4];
+  function nextCount(len, target) {
+    for (const st of STEPS) if (st < len && st >= target) return st;
+    return target;
+  }
+
   async function waves(pool, keep, target, alive, total) {
     let survivors = pool.slice();
-    let bpm = 64;
+    let bpm = 62;
     let wave = 0;
-    A().heartbeat(bpm);
+    hb(bpm);
     A().tension(0.05);
-    await wait(500);
+    await wait(900);
     while (survivors.length > target) {
       if (!alive()) return null;
       const len = survivors.length;
-      let next = len > 12 ? Math.max(target, Math.round(len * 0.4)) : target;
+      const next = nextCount(len, target);
       const losers = pick(survivors.filter((n) => !keep.includes(n)), len - next);
+      const keepers = survivors.filter((n) => !losers.includes(n));
 
       setStatus(len, wave === 0 ? 'The lights are flickering…' : 'Here it comes again…');
-      dipUntil = performance.now() + 800;
+      dipUntil = performance.now() + (1000 * speed) / timeScale;
       A().buzz(0.7);
-      await wait(800);
+      await wait(1000);
       if (!alive()) return null;
 
       setStatus(len, 'Lights out…');
-      const dur = (wave === 0 ? 2300 : 1900) * speed;
-      A().lightsOut(dur / 1000, Math.min(14, losers.length));
+      const dur = (wave === 0 ? 5200 : 3800) * speed;       // virtual ms the lights go out over
+      A().lightsOut(dur / 1000 / timeScale, Math.min(16, losers.length));
       let remaining = len;
       losers.forEach((name) => {
         const at = Math.random() * dur * 0.85;
@@ -512,28 +575,39 @@
           if (!alive()) return;
           const L = lights.get(name);
           L.fl = performance.now();
+          L.flDur = Math.max(300, (1000 * speed) / timeScale);
           L.hot = 0;
           remaining--;
           $('status-num').textContent = remaining;
         }, at);
       });
-      await waitRaw(dur + 500);
+      // near misses: a few survivors almost go out, then come back
+      pick(keepers, Math.min(keepers.length, Math.max(1, Math.min(6, Math.round(len * 0.05))))).forEach((name) => {
+        later(() => {
+          if (!alive()) return;
+          const L = lights.get(name);
+          if (L.fl || L.lifted) return;
+          L.nm = performance.now();
+          L.nmDur = Math.max(400, (1500 * speed) / timeScale);
+          A().buzz(0.3);
+        }, dur * (0.1 + Math.random() * 0.7));
+      });
+      await sleep(dur + 1300 * speed);
       if (!alive()) return null;
-      survivors = survivors.filter((n) => !losers.includes(n));
+      survivors = keepers;
       setStatus(survivors.length, survivors.length > target ? 'still glowing' : 'lights left');
+      gsap.fromTo('#status-num', { scale: 1.45, transformOrigin: '0 70%' }, { scale: 1, duration: 0.7, ease: 'back.out(2.2)' });
       const hot = survivors.length <= 12 ? 1 : survivors.length <= 30 ? 0.5 : 0;
       survivors.forEach((n) => { gsap.to(lights.get(n), { hot, duration: 0.6 }); });
-      if (survivors.length <= NAMES_AT) {
-        spread(survivors.map((n) => lights.get(n)), 1.1);
-      }
+      if (survivors.length <= NAMES_AT) spread(survivors.map((n) => lights.get(n)), 1.4);
       const darkness = Math.min(0.85, 1 - survivors.length / total);
       wrap.style.setProperty('--dark', darkness);
       XMAS.scene.setDim(darkness);
       wave++;
-      bpm += 12;
-      A().heartbeat(bpm);
-      A().tension(Math.min(0.7, 0.2 + wave * 0.18));
-      await wait(1300);
+      bpm += 10;
+      hb(bpm);
+      A().tension(Math.min(0.7, 0.2 + wave * 0.15));
+      await wait(1800);
     }
     return survivors;
   }
@@ -635,7 +709,7 @@
     // ACT 1 — power up along the garland
     await powerUp(pool, alive);
     if (!alive()) return false;
-    gsap.to(cams, { x: CX - CX * 1.05, y: CY - 600 * 1.05, scale: 1.05, duration: S(16), ease: 'none' });
+    gsap.to(cams, { x: CX - CX * 1.05, y: CY - 600 * 1.05, scale: 1.05, duration: S(40), ease: 'none' });
 
     // ACT 2 — waves of lights going out
     const target = batch ? winners.length : Math.min(4, pool.length);
@@ -698,7 +772,7 @@
       if (!alive()) return false;
       left = left.filter((b) => b !== out);
       bpm += 10;
-      A().heartbeat(bpm);
+      hb(bpm);
       await wait(1400);
     }
     if (!alive()) return false;
@@ -716,7 +790,7 @@
       A().whoosh(0.8);
       await wait(1300);
       if (!alive()) return false;
-      A().heartbeat(110);
+      hb(110);
       A().tension(1);
 
       // The script is chosen at random and is independent of who wins:
@@ -744,7 +818,7 @@
 
       // spotlight: lands on either one, at random. It decides nothing.
       setStatus(2, 'Final two');
-      A().heartbeat(124);
+      hb(124);
       beam.classList.add('show');
       let pos = rand(2);
       const hops = 9 + rand(6);
@@ -856,7 +930,7 @@
     wrap.style.setProperty('--dark', 1);
     finalsEl.innerHTML = '';
     setStatus(null, '');
-    await waitRaw(5000);
+    await sleep(5000, 4200);
     if (!alive()) return false;
 
     // an ember breathes on the tree where the winner's light hangs
@@ -869,12 +943,12 @@
     ember.style.left = ex + 'px';
     ember.style.top = ey + 'px';
     for (const peak of [0.28, 0.55]) {
-      await tween(ember, { opacity: peak, duration: 1.3, ease: 'sine.inOut' });
-      await tween(ember, { opacity: 0.02, duration: 1.2, ease: 'sine.inOut' });
+      await tween(ember, { opacity: peak, duration: 1.3 * ec(), ease: 'sine.inOut' });
+      await tween(ember, { opacity: 0.02, duration: 1.2 * ec(), ease: 'sine.inOut' });
       if (!alive()) return false;
       await waitRaw(400);
     }
-    await tween(ember, { opacity: 1, duration: 1.8, ease: 'sine.in' });
+    await tween(ember, { opacity: 1, duration: 1.8 * ec(), ease: 'sine.in' });
     if (!alive()) return false;
 
     // it catches
@@ -960,7 +1034,7 @@
   XMAS.tree = {
     layout, reset, run, showWinner, setStatus, markWon, unmarkWon, markPicked, clearPicked,
     cancel: () => { reset(); },
-    setTimeScale(x) { timeScale = x; gsap.globalTimeline.timeScale(x); },
+    setTimeScale(x) { timeScale = x; gsap.globalTimeline.timeScale(x); XMAS.audio.setRate && XMAS.audio.setRate(x); },
     get timeScale() { return timeScale; }
   };
 })();

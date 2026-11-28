@@ -36,11 +36,11 @@
     return { prizes, rounds };
   }
 
-  const SECONDS = { grand: 95, full: 58, quick: 32, batch: 40 };
-  function estimate(ranked, show) {
+  const SECONDS = { grand: 150, full: 100, quick: 58, batch: 70 };
+  function estimate(ranked, show, speed = 1) {
     if (!ranked.length) return { rounds: 0, minutes: 0 };
     const { rounds } = plan(ranked, show);
-    const secs = rounds.reduce((a, r) => a + SECONDS[r.show] + 12, 0);
+    const secs = rounds.reduce((a, r) => a + SECONDS[r.show] + 14, 0) / speed;
     return { rounds: rounds.length, minutes: Math.max(1, Math.round(secs / 60)) };
   }
 
@@ -87,7 +87,15 @@
 
   function enterPanel() {
     const p = $('prize-panel');
-    p.classList.remove('enter'); void p.offsetWidth; p.classList.add('enter');
+    p.classList.remove('enter', 'drum'); void p.offsetWidth; p.classList.add('enter');
+  }
+
+  /* The prize announcement: the name builds in over a drumroll. */
+  function drumIn() {
+    const p = $('prize-panel');
+    p.classList.remove('drum'); void p.offsetWidth; p.classList.add('drum');
+    XMAS.audio.announce();
+    XMAS.audio.drumroll(1.6);
   }
 
   function setRedrawVisible(on) {
@@ -217,7 +225,7 @@
     state.phase = 'announce';
     save();
     renderAnnounce();
-    XMAS.audio.announce();
+    drumIn();
     announce(`Redraw for the ${p.label}. Press Space to light the tree.`);
   }
 
@@ -248,7 +256,7 @@
     state.pending = null;
     save();
     renderAnnounce();
-    XMAS.audio.announce();
+    drumIn();
     const ps = roundPrizes();
     announce(`Next: ${ps.map((p) => `${p.label}, ${p.name}`).join('; ')}. Press Space to light the tree.`);
   }
@@ -276,7 +284,7 @@
     } else {
       state.phase = 'announce';
       renderAnnounce();
-      XMAS.audio.announce();
+      drumIn();
     }
   }
 
@@ -384,9 +392,7 @@
         redrawIndex: null,
         rehearsal
       };
-      XMAS.tree.setTimeScale(1);
-      $('fast-key').hidden = !rehearsal;
-      $('fast-label').textContent = 'Fast-forward';
+      XMAS.tree.setTimeScale(XMAS.settings.speed);
       save();
       openPrizeMode();
       const ps = roundPrizes();
@@ -396,8 +402,7 @@
       if (!saved || saved.v !== 2 || !Array.isArray(saved.winners) || !Array.isArray(saved.names) || !Array.isArray(saved.rounds)) { this.clear(true); return false; }
       state = saved;
       state.absent = state.absent || [];
-      XMAS.tree.setTimeScale(1);
-      $('fast-key').hidden = true;
+      XMAS.tree.setTimeScale(XMAS.settings.speed);
       if (state.winners.every(Boolean) && state.phase === 'won' && isLast()) { showResults(); return true; }
       openPrizeMode();
       return true;
@@ -406,8 +411,7 @@
       mode = 'players';
       $('draw').classList.add('players');
       $('draw').classList.remove('rehearsal');
-      $('fast-key').hidden = true;
-      XMAS.tree.setTimeScale(1);
+      XMAS.tree.setTimeScale(XMAS.settings.speed);
       const names = XMAS.app.names();
       XMAS.ui.show('draw', { badge: 'Game time', tone: 'game', counter: `${names.length} on the tree` });
       XMAS.tree.layout(names, { picked: new Set(players.picked) });
@@ -424,12 +428,6 @@
       else await runPrize();
     },
     redraw: openRedraw,
-    toggleFast() {
-      if (!state || !state.rehearsal || mode !== 'prize') return;
-      const fast = XMAS.tree.timeScale === 1;
-      XMAS.tree.setTimeScale(fast ? 4 : 1);
-      $('fast-label').textContent = fast ? 'Fast-forward ×4 (on)' : 'Fast-forward';
-    },
     skip() {
       if (mode !== 'prize' || !state) return;
       if (!confirm('Skip the suspense and draw every remaining prize instantly?')) return;
@@ -455,7 +453,6 @@
     },
     leave() {
       XMAS.tree.cancel();
-      XMAS.tree.setTimeScale(1);
       busy = false;
       if (state && state.phase === 'running') { state.phase = 'announce'; save(); }
     },

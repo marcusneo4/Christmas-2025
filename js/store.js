@@ -61,6 +61,8 @@
       return null;
     },
     setRanked: (list) => write('ranked', list),
+    getSpeed: () => read('speed', 1),
+    setSpeed: (v) => write('speed', v),
     getShow: () => read('show', { fullTop: 5, rest: 'quick' }),
     setShow: (v) => write('show', v),
     getDraw: () => read('draw', null),
